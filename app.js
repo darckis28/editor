@@ -7,8 +7,20 @@ const els={stage:$('stageHolder'),canvas:$('pdfCanvas'),overlay:$('markupCanvas'
 let toastTimer;
 function toast(message,error=false){const el=$('toast');el.textContent=message;el.classList.toggle('error',error);el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),4000)}
 function status(message){$('activity').textContent=message}
-function needLibrary(){if(!window.pdfjsLib||!window.PDFLib){toast('No se cargaron PDF.js o pdf-lib. Comprueba tu conexión a internet y actualiza la página.',true);return false}return true}
-if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function setLibraryStatus(message,ready,error=false){
+ const node=$('libraryStatus');node.textContent=message;
+ node.classList.toggle('is-ready',!!ready);node.classList.toggle('is-error',!!error);
+ $('retryLibraryBtn').classList.toggle('hidden',!error);
+}
+async function needLibrary(){
+ if(window.pdfjsLib&&window.PDFLib){setLibraryStatus('✓ Herramientas PDF listas',true);return true}
+ if(!window.EditaditoDependencies){setLibraryStatus('Falta el cargador de bibliotecas PDF.',false,true);toast('Error de configuración: dependencies.js no está disponible.',true);return false}
+ const result=await EditaditoDependencies.load(message=>setLibraryStatus(message,false));
+ if(result.ready){setLibraryStatus('✓ Herramientas PDF listas',true);return true}
+ setLibraryStatus('No se pudieron cargar las bibliotecas PDF. Comprueba internet y usa Reintentar.',false,true);
+ toast('No se cargó '+result.failed.join(' ni ')+'. Revisa tu conexión o pulsa Reintentar.',true);
+ return false;
+}
 const mod=(v,n)=>((v%n)+n)%n;
 const uid=()=> 'o'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const currentPage=()=>state.pages[state.current];
@@ -21,7 +33,7 @@ function redo(){if(!state.future.length)return;state.history.push(JSON.stringify
 function setTool(name){state.tool=name;all('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===name));const hints={select:'Haz clic sobre un elemento añadido para seleccionarlo y moverlo.',edit:'Haz clic sobre una línea de texto del PDF. Su reemplazo será visual, no eliminará el texto interno.',text:'Haz clic en la página para insertar un texto.',rect:'Arrastra para dibujar una figura.',highlight:'Arrastra para resaltar una zona.',white:'Arrastra para cubrir una zona. No sirve para eliminar información confidencial.',pen:'Mantén pulsado y dibuja a mano alzada.',image:'Selecciona una imagen y luego haz clic para colocarla.',signature:'Dibuja tu firma visual y luego colócala en la página.'};$('editHint').textContent=hints[name];els.overlay.style.cursor=name==='select'?'default':name==='edit'?'text':'crosshair';if(name==='image'&&!state.pendingImage)$('imageInput').click();if(name==='signature'&&!state.signData)showDialog($('signDialog'))}
 function showDialog(el){if(!el.open)el.showModal()}
 async function importPDF(file,append=false){
- if(!needLibrary())return;
+ if(!await needLibrary())return;
  if(!file||(!/\.pdf$/i.test(file.name)&&file.type!=='application/pdf')){toast('Selecciona un archivo PDF válido.',true);return}
  if(file.size>125*1024*1024){toast('El documento supera el límite recomendado de 125 MB.',true);return}
  try{
@@ -226,7 +238,7 @@ function changePage(method){if(!currentPage())return;snapshot();const m=currentP
  if(method==='up'&&state.current>0){[state.pages[state.current-1],state.pages[state.current]]=[state.pages[state.current],state.pages[state.current-1]];state.current--}
  if(method==='down'&&state.current<state.pages.length-1){[state.pages[state.current+1],state.pages[state.current]]=[state.pages[state.current],state.pages[state.current+1]];state.current++}
  state.selectedId=null;refresh()}
-async function addBlank(){if(!needLibrary())return;const doc=await PDFLib.PDFDocument.create();doc.addPage([595.28,841.89]);const raw=await doc.save();const file=new File([raw],'Página en blanco.pdf',{type:'application/pdf'});await importPDF(file,true)}
+async function addBlank(){if(!await needLibrary())return;const doc=await PDFLib.PDFDocument.create();doc.addPage([595.28,841.89]);const raw=await doc.save();const file=new File([raw],'Página en blanco.pdf',{type:'application/pdf'});await importPDF(file,true)}
 function download(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
 function saveOriginal(){const model=currentPage();if(!model)return;const s=state.sources.get(model.sourceId);download(new Blob([s.bytes.slice(0)],{type:'application/pdf'}),s.name);toast('Descargado el PDF original sin modificar sus bytes.')}
 async function beginSave(){if(!state.pages.length||state.busy)return;const signed=[...state.sources.values()].some(s=>s.signature.potentiallySigned);
@@ -237,7 +249,7 @@ async function saveEdited(){if(state.busy)return;try{state.busy=true;$('saveBtn'
  }catch(err){console.error(err);toast('Error al guardar: '+err.message,true);status('Error en la exportación')}finally{state.busy=false;$('saveBtn').disabled=!state.pages.length}}
 async function loadImage(file){if(!file)return;if(!/^image\/(png|jpeg)$/.test(file.type)){toast('Usa una imagen PNG o JPG.',true);return}const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file)});const img=new Image();img.onload=()=>{state.pendingImage={dataUrl:url,width:img.naturalWidth,height:img.naturalHeight};setTool('image');toast('Imagen lista. Haz clic en la página para insertarla.')};img.src=url}
 async function loadFont(file){if(!file)return;if(!/\.(ttf|otf)$/i.test(file.name)){toast('La fuente debe ser .ttf u .otf.',true);return}
- if(!window.fontkit){toast('El módulo de fuentes no está disponible. Verifica tu conexión.',true);return}
+ if(!window.fontkit){status('Preparando fuentes personalizadas...');const ok=await EditaditoDependencies.loadFontkit();if(!ok){toast('No se pudo cargar el módulo de fuentes. Comprueba tu conexión.',true);status('Fallo al cargar fuente');return}}
  const bytes=await file.arrayBuffer();let family=file.name.replace(/\.(ttf|otf)$/i,'');
  const known=['Arial','Calibri','Verdana','Times New Roman','Georgia','Tahoma','Trebuchet MS','Courier New','Comic Sans MS','Impact'];
  const byName=known.find(n=>family.toLowerCase().replace(/[-_ ]/g,'').startsWith(n.toLowerCase().replace(/ /g,'')));
@@ -261,6 +273,17 @@ function events(){
  $('dropZone').onclick=e=>{if(e.target.closest('button'))return;$('fileInput').click()};
  $('dropZone').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('fileInput').click()}};
  $('fileInput').onchange=async e=>{await importPDF(e.target.files[0],false);e.target.value=''};
+ $('exampleBtn').onclick=async ()=>{
+   try{
+     const b=atob(window.EditaditoDemoPDF||'');
+     const bytes=Uint8Array.from(b,c=>c.charCodeAt(0));
+     await importPDF(new File([bytes],'PDF_DE_PRUEBA.pdf',{type:'application/pdf'}),false);
+   }catch(err){toast('No se pudo abrir el ejemplo: '+err.message,true)}
+ };
+ $('retryLibraryBtn').onclick=async ()=>{
+   $('retryLibraryBtn').classList.add('hidden');
+   await needLibrary();
+ };
  $('addPdfBtn').onclick=()=>$('addPdfInput').click();
  $('addPdfInput').onchange=async e=>{for(const f of e.target.files)await importPDF(f,true);e.target.value=''};
  $('imageInput').onchange=e=>{loadImage(e.target.files[0]);e.target.value=''};
@@ -297,6 +320,10 @@ function events(){
  initializeSignPad();
 }
 function changeFontSize(n){if(!Number.isFinite(n))return;updateAnnotation(a=>a.size=Math.min(180,Math.max(4,n)))}
-function initialize(){events();setTool('select');refresh();if(!needLibrary())status('Faltan bibliotecas PDF; conéctate a internet y recarga.');}
+function initialize(){
+ events();setTool('select');refresh();
+ setLibraryStatus('Cargando herramientas…',false);
+ needLibrary().then(ok=>{if(ok)status('Listo para abrir PDF');else status('Sin bibliotecas PDF: usa Reintentar')});
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initialize);else initialize();
 })();
