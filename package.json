@@ -1,11 +1,11 @@
 {
   "name": "editadito-pro",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
-  "description": "Editor PDF local con carga fiable de dependencias y advertencias de firmas digitales",
+  "description": "Editor PDF local para Netlify, compilación sin archivos de scripts adicionales",
   "scripts": {
-    "build": "node scripts/prepare-vendor.mjs",
-    "start": "python -m http.server 8000"
+    "build": "node -e \"const fs=require('node:fs');const path=require('node:path');fs.rmSync('dist',{recursive:true,force:true});fs.mkdirSync('dist/js',{recursive:true});fs.mkdirSync('dist/vendor',{recursive:true});for(const f of ['index.html','styles.css']){ if(!fs.existsSync(f))throw Error('Falta archivo del proyecto: '+f); fs.copyFileSync(f,path.join('dist',f));}for(const f of fs.readdirSync('js'))if(f.endsWith('.js')){ fs.copyFileSync(path.join('js',f),path.join('dist/js',f));}const vendors=[ ['node_modules/pdfjs-dist/build/pdf.min.js','pdf.min.js'], ['node_modules/pdfjs-dist/build/pdf.worker.min.js','pdf.worker.min.js'], ['node_modules/pdf-lib/dist/pdf-lib.min.js','pdf-lib.min.js'], ['node_modules/@pdf-lib/fontkit/dist/fontkit.umd.min.js','fontkit.umd.min.js']];for(const [src,name] of vendors){ if(!fs.existsSync(src))throw Error('No se encontró '+src+'. Comprueba que Netlify instaló las dependencias de package.json.'); fs.copyFileSync(src,path.join('dist/vendor',name)); console.log('✓ '+name+' ('+Math.ceil(fs.statSync(src).size/1024)+' KB)');}console.log('✓ Compilación completada: carpeta dist/');\"",
+    "start": "python -m http.server 8000 --directory dist"
   },
   "dependencies": {
     "pdfjs-dist": "3.11.174",
