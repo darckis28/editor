@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#053c7d">
+  <meta name="description" content="Editadito PRO: editor PDF con revisión de firmas digitales, tipografías y herramientas de páginas.">
+  <title>Editadito PRO | Editor de PDF</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="logo-mark">e<span>.</span></div><div><strong>Editadito <em>PRO</em></strong><small>Tu editor de documentos PDF</small></div></div>
+    <div class="top-actions">
+      <span class="privacy-note" title="El procesamiento ocurre en el navegador">◉ Privado · En tu navegador</span>
+      <button id="openBtn" class="btn subtle">📂 Abrir PDF</button>
+      <button id="addPdfBtn" class="btn subtle" disabled>＋ Unir PDF</button>
+      <button id="originalBtn" class="btn subtle" disabled title="Conserva intacto el archivo PDF original">⬇ Original intacto</button>
+      <button id="saveBtn" class="btn primary" disabled>⬇ Guardar PDF editado</button>
+    </div>
+  </header>
+  <div class="app-shell">
+    <aside class="left-panel" id="leftPanel">
+      <div class="section-heading"><span>DOCUMENTO</span><span id="pageCountLabel" class="small-counter">0 páginas</span></div>
+      <div class="doc-name" id="documentName">Ningún documento</div>
+      <div id="sourceList" class="source-list"></div>
+      <div class="section-heading pages-heading"><span>PÁGINAS</span><button class="mini-button" id="addBlankBtn" title="Crear página en blanco" disabled>＋</button></div>
+      <div class="pages-list" id="pagesList"><div class="empty-pages">Abre un PDF para mostrar sus páginas.</div></div>
+      <div class="left-tip">💡 Arrastra una miniatura para cambiar el orden. También puedes usar ↑ y ↓.</div>
+    </aside>
+    <main class="main-panel">
+      <div id="signatureBanner" class="signature-banner hidden" role="alert">
+        <div class="sig-badge">⚠</div>
+        <div><strong>Se detectaron indicios de firma digital</strong><p id="signatureSummary">Este PDF puede tener firmas con certificado. Para mantener intacto el documento firmado, descarga el original sin modificaciones.</p></div>
+        <button id="signatureInfoBtn" class="btn outline-warning">Detalles</button>
+      </div>
+      <div class="toolbar" aria-label="Herramientas del editor">
+        <div class="tool-group" aria-label="Herramienta de edición">
+          <button class="tool active" data-tool="select" title="Seleccionar y mover elementos">↖ <span>Seleccionar</span></button>
+          <button class="tool" data-tool="edit" title="Selecciona una línea de texto existente para reemplazo visual">▤ <span>Editar texto</span></button>
+          <button class="tool" data-tool="text" title="Añadir nuevo texto">T <span>Texto</span></button>
+          <button class="tool" data-tool="rect" title="Dibujar rectángulo">▭ <span>Forma</span></button>
+          <button class="tool" data-tool="highlight" title="Resaltar zona">🖍 <span>Resaltar</span></button>
+          <button class="tool" data-tool="white" title="Cubrir una zona visualmente (no elimina datos)">▣ <span>Cubrir</span></button>
+          <button class="tool" data-tool="pen" title="Dibujar a mano">✎ <span>Lápiz</span></button>
+          <button id="imageTool" class="tool" data-tool="image" title="Agregar imagen">▧ <span>Imagen</span></button>
+          <button id="signTool" class="tool" data-tool="signature" title="Dibujar firma visual, no firma digital">✍ <span>Firma visual</span></button>
+        </div>
+        <span class="toolbar-divider"></span>
+        <div class="tool-group">
+          <button id="undoBtn" class="icon-button" title="Deshacer (Ctrl+Z)" disabled>↶</button>
+          <button id="redoBtn" class="icon-button" title="Rehacer (Ctrl+Y)" disabled>↷</button>
+          <button id="rotateLeftBtn" class="icon-button" title="Girar página a la izquierda" disabled>⟲</button>
+          <button id="rotateRightBtn" class="icon-button" title="Girar página a la derecha" disabled>⟳</button>
+          <button id="pageUpBtn" class="icon-button" title="Mover página hacia arriba" disabled>⇧</button>
+          <button id="pageDownBtn" class="icon-button" title="Mover página hacia abajo" disabled>⇩</button>
+          <button id="duplicatePageBtn" class="icon-button" title="Duplicar página" disabled>⧉</button>
+          <button id="deletePageBtn" class="icon-button danger-text" title="Eliminar página" disabled>♲</button>
+        </div>
+        <div class="zoom-group"><button id="zoomOutBtn" class="icon-button" title="Alejar">−</button><span id="zoomLabel">100%</span><button id="zoomInBtn" class="icon-button" title="Acercar">＋</button></div>
+      </div>
+      <div id="emptyState" class="empty-stage">
+        <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Seleccionar PDF">
+          <div class="drop-illustration"><span>PDF</span><div>✎</div></div>
+          <h1>Edita tus PDF fácilmente</h1>
+          <p>Agrega texto, cambia el tamaño y tipo de letra, organiza páginas y revisa si existen firmas digitales.</p>
+          <button id="startBtn" class="btn primary big">📂 Seleccionar documento PDF</button>
+          <small>O arrastra aquí tu archivo PDF. Se procesa localmente en tu navegador.</small>
+        </div>
+      </div>
+      <div id="workspace" class="workspace hidden">
+        <div class="workspace-top"><div id="editHint">Selecciona una herramienta para comenzar.</div><span id="pageIndicator">Página 1 de 1</span></div>
+        <div class="stage-scroll" id="stageScroll">
+          <div class="stage-holder" id="stageHolder">
+            <canvas id="pdfCanvas" aria-label="Página PDF actual"></canvas>
+            <canvas id="markupCanvas" aria-label="Capa de edición"></canvas>
+          </div>
+        </div>
+        <div class="workspace-footer"><span>🔒 Los archivos permanecen en tu dispositivo</span><span id="activity">Listo</span></div>
+      </div>
+    </main>
+    <aside class="right-panel">
+      <div class="section-heading">PROPIEDADES</div>
+      <div class="property-card" id="propertyIntro"><div class="property-icon">Aa</div><h3>Texto y formato</h3><p>Añade texto o selecciona una línea existente para editarla visualmente. Ajusta el tamaño con + y −.</p></div>
+      <div class="property-card property-form">
+        <label for="textEditor">Contenido del texto</label>
+        <textarea id="textEditor" rows="3" placeholder="Selecciona o añade un texto..." disabled></textarea>
+        <label for="fontFamily">Tipo de letra</label>
+        <select id="fontFamily" disabled>
+          <option value="Arial">Arial</option><option value="Calibri">Calibri</option><option value="Verdana">Verdana</option>
+          <option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option>
+          <option value="Tahoma">Tahoma</option><option value="Trebuchet MS">Trebuchet MS</option>
+          <option value="Courier New">Courier New</option><option value="Comic Sans MS">Comic Sans MS</option>
+          <option value="Impact">Impact</option><option value="Helvetica">Helvetica</option>
+        </select>
+        <label for="fontSize">Tamaño de fuente</label>
+        <div class="stepper"><button id="sizeMinusBtn" aria-label="Disminuir tamaño de letra" disabled>−</button><input id="fontSize" type="number" min="4" max="180" step="1" value="16" disabled><span>pt</span><button id="sizePlusBtn" aria-label="Aumentar tamaño de letra" disabled>＋</button></div>
+        <div class="format-row"><button id="boldBtn" class="format-btn" title="Negrita" disabled><b>B</b></button><button id="italicBtn" class="format-btn" title="Cursiva" disabled><i>I</i></button><label class="inline-label">Color <input id="fontColor" type="color" value="#142642" disabled></label></div>
+        <label for="textAlign">Alineación</label><select id="textAlign" disabled><option value="left">Izquierda</option><option value="center">Centrada</option><option value="right">Derecha</option></select>
+        <div class="section-small-title">Posición del objeto</div>
+        <div class="nudge-grid"><button id="moveLeftBtn" title="Mover texto a la izquierda" disabled>←</button><button id="moveUpBtn" title="Subir texto" disabled>↑</button><button id="moveDownBtn" title="Bajar texto" disabled>↓</button><button id="moveRightBtn" title="Mover texto a la derecha" disabled>→</button></div>
+        <button id="deleteObjectBtn" class="btn outline-danger full" disabled>Eliminar elemento seleccionado</button>
+      </div>
+      <div class="property-card font-card"><h3>Fuentes personalizadas</h3><p>Para usar Arial exacta en el PDF exportado, importa tu archivo de fuente <b>.ttf</b> u <b>.otf</b>. Sin importarlo, se usará una alternativa PDF parecida.</p><button id="importFontBtn" class="btn outline full">↑ Importar fuente .ttf / .otf</button><div id="customFontLabel" class="fineprint"></div></div>
+      <div class="property-card help-card"><strong>⚠ Sobre las firmas digitales</strong><p>Conservar una firma con certificado requiere mantener el PDF sin modificar. La firma visible no equivale a su validez criptográfica.</p><button id="reviewSignaturesBtn" class="btn outline full" disabled>Revisar firmas detectadas</button></div>
+    </aside>
+  </div>
+  <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
+  <input id="addPdfInput" type="file" accept="application/pdf,.pdf" multiple hidden>
+  <input id="imageInput" type="file" accept="image/png,image/jpeg" hidden>
+  <input id="fontInput" type="file" accept=".ttf,.otf,font/ttf,font/otf" hidden>
+  <dialog id="signDialog" class="modal"><div class="modal-head"><h2>Crear firma visual</h2><button id="closeSignDialog" class="icon-button">✕</button></div><p>Dibuja con el mouse o con el dedo. <strong>No es una firma digital con certificado.</strong></p><canvas id="signaturePad" width="620" height="190"></canvas><div class="dialog-actions"><button id="clearSignBtn" class="btn subtle">Borrar dibujo</button><button id="addSignBtn" class="btn primary">Usar esta firma</button></div></dialog>
+  <dialog id="signatureDialog" class="modal"><div class="modal-head"><h2>Seguridad de las firmas digitales</h2><button id="closeSignatureDialog" class="icon-button">✕</button></div><div id="signatureReport"></div><p class="warning-note">La detección es orientativa. No verifica la cadena de confianza del certificado ni la validez criptográfica. Editar, unir, girar o reexportar un PDF firmado normalmente invalida su firma.</p><div class="dialog-actions"><button id="downloadOriginalFromDialog" class="btn primary">Descargar original intacto</button><button id="closeSignatureDialog2" class="btn subtle">Entendido</button></div></dialog>
+  <dialog id="confirmEditDialog" class="modal"><div class="modal-head"><h2>El PDF editado perderá la validez de su firma</h2></div><p>El documento incluye indicios de firmas con certificado. Guardar el PDF editado reconstruirá el archivo y puede invalidar las firmas. <b>Para conservarlas, descarga el archivo original.</b></p><div class="dialog-actions"><button id="cancelSignedExport" class="btn primary">Conservar firma: descargar original</button><button id="confirmSignedExport" class="btn outline-danger">Guardar copia editada sin validez de firma</button></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+  <script defer src="./js/signatures.js"></script>
+  <script defer src="./js/pdf-engine.js"></script>
+  <script defer src="./js/app.js"></script>
+</body>
+</html>
